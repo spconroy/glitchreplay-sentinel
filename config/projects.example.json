@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sync": {
+    "enabled": true,
+    "batchPageCount": 10,
+    "inactivitySeconds": 600,
+    "branchStrategy": "per-user",
+    "branchPrefix": "qa",
+    "allowSameBranchCollaboration": false
+  },
+  "github": {
+    "cliPreference": "system-first",
+    "bundledGhFallback": true
+  },
+  "screenshots": {
+    "storage": "repo",
+    "commitScreenshots": true,
+    "deleteAfterIssueCreation": false
+  },
+  "discovery": {
+    "queryStringMode": "strip-tracking",
+    "trackingParams": ["utm_*", "fbclid", "gclid", "msclkid"]
+  },
+  "brands": [
+    {
+      "id": "example-brand",
+      "name": "Example Brand",
+      "projects": [
+        {
+          "id": "example-marketing",
+          "name": "Marketing Site",
+          "rootUrl": "https://example.com",
+          "sitemaps": ["https://example.com/sitemap.xml"],
+          "mode": "hybrid",
+          "githubRepo": "owner/repo",
+          "labels": ["qa", "website"],
+          "webviewPartition": "persist:example-brand"
+        },
+        {
+          "id": "example-app",
+          "name": "App",
+          "rootUrl": "https://app.example.com",
+          "sitemaps": [],
+          "mode": "discover",
+          "seedUrls": ["https://app.example.com/dashboard"],
+          "githubRepo": "owner/repo",
+          "labels": ["qa", "app"],
+          "webviewPartition": "persist:example-brand",
+          "recordActions": true,
+          "queryStringMode": "strip-tracking"
+        }
+      ]
+    }
+  ]
+}

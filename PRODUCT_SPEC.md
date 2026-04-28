@@ -57,7 +57,7 @@ Local JSON files committed to the same Git repository as the QA tool or to a ded
 
 ### GitHub Integration
 
-Use GitHub CLI (`gh`) for authentication and issue creation in MVP. The app may use a bundled `gh` binary or a system-installed `gh`, depending on packaging strategy.
+Use GitHub CLI (`gh`) for authentication and issue creation in MVP. The app should prefer the system-installed `gh` first, then fall back to a bundled binary if one is available and configured.
 
 ### Git Sync
 
@@ -69,7 +69,7 @@ Use a robust XML parser such as `fast-xml-parser`. The parser must support sitem
 
 ### Automation Foundation
 
-Use Playwright later for replaying recorded actions. MVP should record actions in a Playwright-compatible structure, even if automated replay is not fully implemented.
+Use Playwright later for replaying recorded actions. MVP should support passive action recording as a configurable feature and store actions in a Playwright-compatible structure, even if automated replay is not fully implemented.
 
 ## 6. Product Modes
 
@@ -106,7 +106,22 @@ Projects are grouped by brand because a real product may have multiple domains o
     "enabled": true,
     "batchPageCount": 10,
     "inactivitySeconds": 600,
-    "branchStrategy": "current-branch"
+    "branchStrategy": "per-user",
+    "branchPrefix": "qa",
+    "allowSameBranchCollaboration": false
+  },
+  "github": {
+    "cliPreference": "system-first",
+    "bundledGhFallback": true
+  },
+  "screenshots": {
+    "storage": "repo",
+    "commitScreenshots": true,
+    "deleteAfterIssueCreation": false
+  },
+  "discovery": {
+    "queryStringMode": "strip-tracking",
+    "trackingParams": ["utm_*", "fbclid", "gclid", "msclkid"]
   },
   "brands": [
     {
@@ -160,6 +175,9 @@ Projects are grouped by brand because a real product may have multiple domains o
 - `ignorePatterns`: URL patterns to exclude, such as `/logout`, `mailto:`, `tel:`, query-heavy URLs, or admin-only paths.
 - `includeSubdomains`: Whether subdomains under the root domain should be considered internal.
 - `allowedDomains`: Explicit domains that belong to the project or brand.
+- `queryStringMode`: Project-level override for discovery URL query handling. Supported values: `strip-all`, `strip-tracking`, `preserve-all`, `allowlist`.
+- `allowedQueryParams`: Query params to preserve when `queryStringMode` is `allowlist`.
+- `recordActions`: Project-level override for passive action recording.
 
 ## 8. File Structure
 
@@ -331,8 +349,11 @@ The app should normalize URLs before comparing them.
 Rules:
 
 - Remove hash fragments.
-- Optionally remove tracking query params such as `utm_*`, `fbclid`, and `gclid`.
-- Preserve meaningful query params if configured.
+- Apply the configured `queryStringMode`.
+- `strip-all`: remove all query parameters.
+- `strip-tracking`: remove tracking query params such as `utm_*`, `fbclid`, `gclid`, and `msclkid`, while preserving other params.
+- `preserve-all`: keep query strings exactly as discovered.
+- `allowlist`: preserve only configured `allowedQueryParams`.
 - Normalize trailing slash according to project setting.
 - Lowercase protocol and hostname.
 
@@ -544,7 +565,13 @@ When ignored:
 
 ### Command
 
-MVP uses GitHub CLI:
+MVP uses GitHub CLI. The app resolves the CLI path in this order:
+
+1. System-installed `gh` found on `PATH`.
+2. Bundled `gh` binary if `github.bundledGhFallback` is enabled.
+3. User-configured custom `gh` path, if added in a future settings screen.
+
+The default behavior is system-first because many users already authenticate and manage GitHub accounts through their local CLI.
 
 ```bash
 gh issue create \
@@ -628,20 +655,23 @@ Both page count and inactivity threshold must be configurable.
 
 Recommended MVP sync:
 
-1. Check if there are local changes.
-2. Stage known data paths only.
-3. Commit with a generated message.
-4. Pull with rebase.
-5. Push current branch.
-6. Update sync status in UI.
+1. Ensure the reviewer is on the configured QA branch.
+2. Check if there are local changes.
+3. Stage known data paths only.
+4. Commit with a generated message.
+5. Pull with rebase from the matching remote branch.
+6. Push the current branch.
+7. Update sync status in UI.
+
+Default branch behavior is `per-user`. On first run, the app should derive a branch name from the GitHub username, such as `qa/sean`, create it if missing, and push to that branch. This reduces conflicts between reviewers. The behavior must remain configurable so maintainers can choose `current-branch`, `per-user`, or `per-project`.
 
 Recommended command sequence:
 
 ```bash
 git add config data screenshots
 git commit -m "QA sync: {count} pages processed [skip ci]"
-git pull --rebase
-git push
+git pull --rebase origin {branch}
+git push origin {branch}
 ```
 
 ### Important Constraint
@@ -843,12 +873,12 @@ Input events should store that input happened, not the value, unless explicitly 
 
 ### Local Files
 
-Screenshots may contain sensitive information. Users must understand that screenshots can be committed to Git if screenshot sync is enabled.
+Screenshots may contain sensitive information. The default product behavior is to store screenshots in the repository and commit them with QA progress so issues remain auditable and portable across the team.
 
 Provide config options:
 
-- Store screenshots but do not commit them.
-- Commit screenshots.
+- Store screenshots in the repo and commit them. This is the default.
+- Store screenshots locally but do not commit them.
 - Delete screenshots after issue creation.
 
 ### Command Execution

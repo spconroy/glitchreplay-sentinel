@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "description": "Desktop QA workflow for sitemap review and GitHub issue reporting.",
+  "license": "MIT",
+  "homepage": "https://glitchreplay.com/sentinel",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/spconroy/glitchreplay-sentinel.git"
+  },
   "main": "src/main/main.js",
   "type": "module",
   "scripts": {

@@ -60,17 +60,10 @@ Default branch strategy is per-user, such as `qa/sean`.
 
 ## GlitchReplay integration
 
-Planned. Design + bridge code in [`docs/glitchreplay.md`](docs/glitchreplay.md). The GlitchReplay-side helper (`@glitchreplay/qa-report`) is shipped and exposes `window.glitchreplay.reportQA(...)` on any page that's wired it into its `Sentry.init`.
+Initial bridge included. Design details are in [`docs/glitchreplay.md`](docs/glitchreplay.md). The GlitchReplay-side helper (`@glitchreplay/qa-report`) exposes `window.glitchreplay.reportQA(...)` on any page that's wired it into its `Sentry.init`.
 
-### TODO: reviewer name capture
+When **Report Issue** creates a GitHub issue, Sentinel also tries to call `window.glitchreplay.reportQA(...)` inside the reviewed page. If the helper is present, GlitchReplay receives the QA report and links it to the active replay. If it is absent, Sentinel falls back to GitHub-only reporting.
 
-Before wiring up the GlitchReplay path, Sentinel needs a reviewer-identity field — a name or email captured once and forwarded on every report. Without it, all QA reports surface as `(anonymous)` in the GlitchReplay dashboard and there's no way to bulk-filter by reviewer.
+### Reviewer name
 
-Concrete pieces:
-
-- [ ] First-run dialog: "What name or email should appear on QA reports you file?" Persist to `data/profile.json` (or similar).
-- [ ] Default to `gh api user --jq '.login'` since `gh` auth is already required.
-- [ ] Settings UI: a single editable text field. Empty value should disable the GlitchReplay report path (fail loudly rather than file anonymous).
-- [ ] Plumb the captured value into `reportIssue` so it ends up in both the GitHub issue body ("Reported by …") and the `reportQA({ reviewer })` call.
-
-Once that's in, the bridge described in `docs/glitchreplay.md` can be wired into the existing **Report Issue** flow.
+Sentinel captures a reviewer name once, defaults it from `gh api user --jq '.login'`, stores it in `data/profile.json`, includes it in GitHub issue bodies, and passes it to GlitchReplay as `reportQA({ reviewer })`.

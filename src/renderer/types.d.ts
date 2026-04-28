@@ -17,9 +17,15 @@ declare global {
   interface Window {
     sentinel: {
       bootstrap: () => Promise<Bootstrap>;
+      saveProfile: (profile: Profile) => Promise<Profile>;
       refreshProject: (payload: ProjectPayload) => Promise<ProjectState>;
       savePageAction: (payload: PageActionPayload) => Promise<{ page: QaPage }>;
-      reportIssue: (payload: ReportIssuePayload) => Promise<{ issueUrl: string; screenshotPath?: string; page: QaPage }>;
+      reportIssue: (payload: ReportIssuePayload) => Promise<{
+        issueUrl: string;
+        screenshotPath?: string;
+        page: QaPage;
+        glitchReplay?: { sent: boolean; eventId?: string | null; reason?: string };
+      }>;
       saveDiscoveredUrls: (payload: DiscoveredPayload) => Promise<{ added: string[] }>;
       saveRecordedAction: (payload: RecordedActionPayload) => Promise<{ saved: boolean }>;
       syncNow: () => Promise<Record<string, unknown>>;
@@ -76,7 +82,13 @@ export type Bootstrap = {
     message?: string;
   };
   user: string;
+  profile: Profile;
   qaPreloadPath: string;
+};
+
+export type Profile = {
+  schemaVersion: number;
+  reviewer: string;
 };
 
 export type QaPage = {
@@ -90,6 +102,7 @@ export type QaPage = {
   sitemapLastmod?: string | null;
   lastInspectedAt?: string | null;
   lastIssueUrl?: string | null;
+  lastGlitchReplayEventId?: string | null;
   lastScreenshotPath?: string | null;
 };
 
@@ -122,6 +135,7 @@ export type Evidence = {
 export type ReportIssuePayload = ProjectPayload & {
   pageUrl: string;
   notes: string;
+  reviewer?: string;
   webContentsId?: number;
   evidence: Evidence;
 };

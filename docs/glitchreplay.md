@@ -12,7 +12,11 @@ handles the rest.
 
 ## Status
 
-Not yet wired up in Sentinel — this doc is the plan for adding it.
+Initial Sentinel bridge is wired. Report Issue still creates a GitHub
+issue first; after that succeeds, Sentinel opportunistically calls
+`window.glitchreplay.reportQA(...)` in the reviewed page. If the
+helper is not present, Sentinel falls back to GitHub-only reporting.
+
 The GlitchReplay-side helper landed in
 `@glitchreplay/qa-report` v0.1.0 (commit `c6ad29b` on
 `spconroy/glitchreplay.com`).
@@ -43,37 +47,40 @@ Sentry.init({
 Effect: `window.glitchreplay.reportQA(...)` becomes available on every
 page once the SDK has set up.
 
-### In Sentinel's webview preload
+### In Sentinel
 
 The bridge between Sentinel's "Report Issue" flow and the page's SDK
-goes in `src/preload/qa-spy.js` (or a sibling preload). Pseudocode:
+is implemented in `src/main/main.js`. Sentinel runs JavaScript inside
+the active webview after the GitHub issue is created:
 
 ```js
-// Detect presence first — fall back to GitHub-only if absent.
-function hasGlitchReplay() {
-  return typeof window.glitchreplay?.reportQA === "function";
-}
+const result = await webview.executeJavaScript(`
+  window.glitchreplay && typeof window.glitchreplay.reportQA === "function"
+    ? window.glitchreplay.reportQA({
+        notes,
+        reviewer,
+        source: "sentinel",
+        evidence,
+        extra: { githubIssueUrl, screenshot }
+      })
+    : null
+`);
+```
 
-async function sendToGlitchReplay({ notes, reviewer, evidence }) {
-  if (!hasGlitchReplay()) return null;
-  return window.glitchreplay.reportQA({
+Conceptually, the payload is:
+
+```js
+window.glitchreplay.reportQA({
     notes,
     reviewer,
     source: "sentinel",
     evidence,
-  });
-}
-```
-
-Sentinel's main process invokes the bridge through the webview:
-
-```js
-// In src/main/main.js, alongside the existing reportIssue handler.
-const result = await webview.executeJavaScript(`
-  window.glitchreplay && typeof window.glitchreplay.reportQA === "function"
-    ? window.glitchreplay.reportQA(${JSON.stringify(payload)})
-    : null
-`);
+    extra: {
+      pageUrl,
+      githubIssueUrl,
+      screenshot,
+    },
+});
 ```
 
 `reportQA` returns `{ eventId }` synchronously; Sentinel can stash
@@ -86,16 +93,10 @@ you can't tell "Sean's reports" from "Maria's reports" in the
 GlitchReplay dashboard, and you can't bulk-filter spam from a single
 machine if it ever happens.
 
-Capture the reviewer name once and pass it on every report. Two ways
-in Sentinel:
-
-1. **First-run dialog.** On the first launch (no reviewer in app
-   config yet), prompt: "What name or email should appear on QA
-   reports you file?" Persist to `data/profile.json` or similar.
-2. **Auto-detect from `gh auth status`.** Sentinel already requires
-   the GitHub CLI for issue creation. `gh api user --jq '.login'`
-   gives the GitHub login; use that as the default and let the user
-   override in settings.
+Sentinel captures the reviewer name once and passes it on every
+report. It defaults from `gh api user --jq '.login'`, stores the value
+in `data/profile.json`, and exposes an editable Reviewer field in the
+app sidebar.
 
 The captured value flows into every report:
 
@@ -110,10 +111,8 @@ window.glitchreplay.reportQA({
 });
 ```
 
-Settings UI: a single text field in Sentinel's project / app
-settings. Editable any time. Empty value should disable the
-"Send to GlitchReplay" path — better to fail loudly than file
-anonymous reports.
+Settings UI: a single text field in Sentinel's sidebar. Empty value
+skips the GlitchReplay path and still allows GitHub issue creation.
 
 The same reviewer name should appear in the GitHub issue body
 (e.g. "Reported by sean@example.com via Sentinel") so the two
@@ -123,10 +122,10 @@ systems stay cross-referenced.
 
 When the reviewer clicks **Report Issue**:
 
-1. **Detect.** Run a presence check via
-   `webview.executeJavaScript("typeof window.glitchreplay?.reportQA === 'function'")`.
-2. **If GlitchReplay is loaded:** offer dual-write by default —
-   create the GitHub issue (existing flow) AND call `reportQA()`.
+1. **Create GitHub issue.** This remains the required reporting path.
+2. **If GlitchReplay is loaded:** dual-write by default —
+   call `reportQA()` with notes, reviewer, evidence, GitHub issue URL,
+   and screenshot reference.
    GitHub gets the human-readable ticket; GlitchReplay gets the
    replay-linked event for the dashboard.
 3. **If GlitchReplay is not loaded:** silently fall through to the
@@ -174,8 +173,6 @@ storage.
 
 ## Open questions
 
-- Should Sentinel default to dual-write (GitHub + GlitchReplay) or
-  let the reviewer pick per-report?
 - Per-project Sentinel config: do we want a
   `glitchreplay: { enabled: true }` toggle, or always attempt the
   bridge and let presence-detection silently fall through?

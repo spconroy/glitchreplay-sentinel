@@ -139,6 +139,7 @@ textarea {
   border-radius: 6px;
   color: #20242a;
   outline: none;
+  text-transform: none;
 }
 
 select,
@@ -151,7 +152,6 @@ textarea {
   min-height: 132px;
   padding: 10px;
   resize: vertical;
-  text-transform: none;
 }
 
 .stats {

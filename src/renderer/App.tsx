@@ -65,6 +65,7 @@ export function App() {
   const [filter, setFilter] = useState<FilterKey>("needs");
   const [query, setQuery] = useState("");
   const [notes, setNotes] = useState("");
+  const [reviewer, setReviewer] = useState("");
   const [evidence, setEvidence] = useState<Evidence>(emptyEvidence);
   const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
@@ -75,6 +76,7 @@ export function App() {
   useEffect(() => {
     window.sentinel.bootstrap().then((result) => {
       setBootstrap(result);
+      setReviewer(result.profile?.reviewer || result.user || "");
       const firstBrand = result.config.brands[0];
       const firstProject = firstBrand?.projects[0];
       if (firstBrand && firstProject) {
@@ -275,10 +277,17 @@ export function App() {
         projectId: project.id,
         pageUrl: selectedPage.url,
         notes: notes.trim() || "Technical issue captured by Sitemap Sentinel.",
+        reviewer: reviewer.trim(),
         webContentsId,
         evidence
       });
-      setMessage(`Created GitHub issue: ${result.issueUrl}`);
+      const replayText =
+        result.glitchReplay?.sent && result.glitchReplay.eventId
+          ? ` GlitchReplay event: ${result.glitchReplay.eventId}`
+          : result.glitchReplay?.reason === "not-installed"
+            ? " GlitchReplay helper not detected; GitHub issue only."
+            : "";
+      setMessage(`Created GitHub issue: ${result.issueUrl}${replayText}`);
       setNotes("");
       await refreshProject(brand.id, project.id);
       selectNextPage(selectedPage.url);
@@ -299,6 +308,12 @@ export function App() {
     } finally {
       setBusy("");
     }
+  }
+
+  async function saveReviewer() {
+    const saved = await window.sentinel.saveProfile({ schemaVersion: 1, reviewer: reviewer.trim() });
+    setReviewer(saved.reviewer);
+    setBootstrap((current) => (current ? { ...current, profile: saved } : current));
   }
 
   if (loading || !bootstrap) {
@@ -356,6 +371,16 @@ export function App() {
               </option>
             ))}
           </select>
+        </label>
+
+        <label>
+          Reviewer
+          <input
+            value={reviewer}
+            onBlur={saveReviewer}
+            onChange={(event) => setReviewer(event.target.value)}
+            placeholder="Name or email"
+          />
         </label>
 
         <div className="stats">

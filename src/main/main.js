@@ -15,6 +15,7 @@ const repoRoot = path.resolve(__dirname, "../..");
 const CONFIG_PATH = path.join(repoRoot, "config/projects.json");
 const EXAMPLE_CONFIG_PATH = path.join(repoRoot, "config/projects.example.json");
 const DATA_ROOT = path.join(repoRoot, "data/brands");
+const PROFILE_PATH = path.join(repoRoot, "data/profile.json");
 const SCREENSHOT_ROOT = path.join(repoRoot, "screenshots");
 
 let mainWindow = null;
@@ -86,6 +87,30 @@ function screenshotPath(brandId, projectId, pageUrl) {
 async function loadConfig() {
   await ensureConfig();
   return readJson(CONFIG_PATH, null);
+}
+
+async function loadProfile() {
+  const fallbackReviewer = await currentGitHubUser();
+  const profile = await readJson(PROFILE_PATH, {
+    schemaVersion: 1,
+    reviewer: fallbackReviewer === "unknown" ? "" : fallbackReviewer
+  });
+
+  if (!profile.reviewer && fallbackReviewer !== "unknown") {
+    profile.reviewer = fallbackReviewer;
+    await writeJson(PROFILE_PATH, profile);
+  }
+
+  return profile;
+}
+
+async function saveProfile(profile) {
+  const clean = {
+    schemaVersion: 1,
+    reviewer: String(profile.reviewer || "").trim()
+  };
+  await writeJson(PROFILE_PATH, clean);
+  return clean;
 }
 
 function findProject(config, brandId, projectId) {
@@ -274,9 +299,10 @@ async function savePageStatus(config, payload) {
     sitemapLastmod: payload.sitemapLastmod || existing.sitemapLastmod || null,
     status: payload.status,
     lastInspectedAt: new Date().toISOString(),
-    lastInspectedBy: await currentGitHubUser(),
+    lastInspectedBy: payload.reviewer || (await loadProfile()).reviewer || (await currentGitHubUser()),
     lastIssueNumber: payload.issueNumber ?? existing.lastIssueNumber ?? null,
     lastIssueUrl: payload.issueUrl ?? existing.lastIssueUrl ?? null,
+    lastGlitchReplayEventId: payload.glitchReplayEventId ?? existing.lastGlitchReplayEventId ?? null,
     lastScreenshotPath: payload.screenshotPath ?? existing.lastScreenshotPath ?? null,
     reviewCount: (existing.reviewCount || 0) + 1
   };
@@ -468,7 +494,7 @@ function markdownList(items, formatter) {
   return items.map(formatter).join("\n");
 }
 
-function buildIssueBody({ notes, pageUrl, brand, project, screenshotRef, evidence }) {
+function buildIssueBody({ notes, pageUrl, brand, project, screenshotRef, evidence, reviewer, glitchReplayEventId }) {
   const consoleErrors = evidence?.consoleErrors || [];
   const networkFailures = evidence?.networkFailures || [];
   const metadata = evidence?.metadata || {};
@@ -483,7 +509,9 @@ ${notes}
 - URL: ${pageUrl}
 - Brand: ${brand.name}
 - Project: ${project.name}
+- Reported by: ${reviewer || "unknown"}
 - Reviewed at: ${new Date().toISOString()}
+${glitchReplayEventId ? `- GlitchReplay event: ${glitchReplayEventId}` : ""}
 
 ## Screenshot
 
@@ -516,6 +544,43 @@ function issueTitle(project, pageUrl) {
   return `[QA] ${project.name}: ${pathName || url.hostname}`;
 }
 
+async function sendGlitchReplayQaReport(webContentsId, payload) {
+  if (!webContentsId || !payload.reviewer) {
+    return { sent: false, reason: "missing-webview-or-reviewer" };
+  }
+
+  const target = webContents.fromId(Number(webContentsId));
+  if (!target) return { sent: false, reason: "webview-not-found" };
+
+  const qaPayload = {
+    notes: payload.notes,
+    reviewer: payload.reviewer,
+    source: "sentinel",
+    evidence: payload.evidence || {},
+    extra: {
+      pageUrl: payload.pageUrl,
+      githubIssueUrl: payload.githubIssueUrl || null,
+      screenshot: payload.screenshotRef || null
+    }
+  };
+
+  try {
+    const result = await target.executeJavaScript(
+      `(() => {
+        const reporter = window.glitchreplay && window.glitchreplay.reportQA;
+        if (typeof reporter !== "function") return null;
+        return reporter(${JSON.stringify(qaPayload)});
+      })()`,
+      true
+    );
+
+    if (!result) return { sent: false, reason: "not-installed" };
+    return { sent: true, eventId: result.eventId || result.id || null };
+  } catch (error) {
+    return { sent: false, reason: error.message || "send-failed" };
+  }
+}
+
 async function createGitHubIssue(config, payload) {
   const { brand, project } = findProject(config, payload.brandId, payload.projectId);
   if (!project.githubRepo || project.githubRepo === "owner/repo") {
@@ -525,6 +590,8 @@ async function createGitHubIssue(config, payload) {
 
   let screenshotFile = null;
   let screenshotRef = null;
+  const profile = await loadProfile();
+  const reviewer = payload.reviewer || profile.reviewer || (await currentGitHubUser());
   if (payload.webContentsId) {
     screenshotFile = await captureScreenshot(brand.id, project.id, payload.pageUrl, payload.webContentsId);
     screenshotRef = await screenshotReference(screenshotFile);
@@ -536,7 +603,8 @@ async function createGitHubIssue(config, payload) {
     brand,
     project,
     screenshotRef,
-    evidence: payload.evidence || {}
+    evidence: payload.evidence || {},
+    reviewer
   });
   const bodyPath = path.join(dataDir(brand.id, project.id), "last-issue-body.md");
   await ensureDir(path.dirname(bodyPath));
@@ -559,6 +627,32 @@ async function createGitHubIssue(config, payload) {
   const result = await execFileAsync("gh", args, { cwd: repoRoot, timeout: 60000 });
   const issueUrl = result.stdout.trim();
   const issueNumberMatch = issueUrl.match(/\/issues\/(\d+)/);
+  const issueNumber = issueNumberMatch ? Number(issueNumberMatch[1]) : null;
+  const glitchReplay = await sendGlitchReplayQaReport(payload.webContentsId, {
+    ...payload,
+    reviewer,
+    githubIssueUrl: issueUrl,
+    screenshotRef
+  });
+
+  if (glitchReplay.eventId && issueNumber) {
+    const updatedBody = buildIssueBody({
+      notes: payload.notes,
+      pageUrl: payload.pageUrl,
+      brand,
+      project,
+      screenshotRef,
+      evidence: payload.evidence || {},
+      reviewer,
+      glitchReplayEventId: glitchReplay.eventId
+    });
+    await fs.writeFile(bodyPath, updatedBody, "utf8");
+    await execFileAsync(
+      "gh",
+      ["issue", "edit", String(issueNumber), "--repo", project.githubRepo, "--body-file", bodyPath],
+      { cwd: repoRoot, timeout: 60000 }
+    );
+  }
 
   const saved = await savePageStatus(config, {
     brandId: brand.id,
@@ -566,11 +660,18 @@ async function createGitHubIssue(config, payload) {
     url: payload.pageUrl,
     status: "issue",
     issueUrl,
-    issueNumber: issueNumberMatch ? Number(issueNumberMatch[1]) : null,
+    issueNumber,
+    reviewer,
+    glitchReplayEventId: glitchReplay.eventId || null,
     screenshotPath: screenshotFile ? path.relative(repoRoot, screenshotFile) : null
   });
 
-  return { issueUrl, page: saved, screenshotPath: screenshotFile ? path.relative(repoRoot, screenshotFile) : null };
+  return {
+    issueUrl,
+    page: saved,
+    glitchReplay,
+    screenshotPath: screenshotFile ? path.relative(repoRoot, screenshotFile) : null
+  };
 }
 
 async function syncGit(config) {
@@ -640,8 +741,13 @@ ipcMain.handle("app:bootstrap", async () => {
     config,
     gh: await checkGhAuth(),
     user: await currentGitHubUser(),
+    profile: await loadProfile(),
     qaPreloadPath: path.join(__dirname, "../preload/qa-spy.js")
   };
+});
+
+ipcMain.handle("profile:save", async (_event, profile) => {
+  return saveProfile(profile);
 });
 
 ipcMain.handle("project:refresh", async (_event, payload) => {

@@ -2,7 +2,7 @@
 
 Free, open-source desktop QA workflow for reviewing every page on a website, using sitemaps and link discovery to find the pages, and filing rich GitHub issues with screenshot and browser evidence.
 
-Sentinel is built for human QA. It gives reviewers one place to load every page, approve pages that pass, and report pages that fail. When a site also has the GlitchReplay QA helper installed, Sentinel can dual-write the report into GlitchReplay so the active replay is attached automatically.
+Sentinel is built for human QA. It gives reviewers one place to load every page, approve pages that pass, and report pages that fail. When a site also has the [GlitchReplay](https://glitchreplay.com) QA helper installed, Sentinel can dual-write the report into GlitchReplay so the active replay is attached automatically.
 
 ## What It Does
 

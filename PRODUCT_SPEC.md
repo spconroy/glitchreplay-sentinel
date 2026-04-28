@@ -2,7 +2,7 @@
 
 ## 1. Product Summary
 
-Sitemap Sentinel is an open-source desktop QA application for reviewing many websites quickly and consistently. It loads pages from a sitemap or from discovered internal links, lets a QA reviewer approve pages or file issues, captures screenshots and technical evidence automatically, and syncs QA progress through Git.
+Sitemap Sentinel is an open-source desktop QA application for reviewing all pages across many websites quickly and consistently. It uses sitemaps and internal link discovery to build the page queue, lets a QA reviewer approve pages or file issues, captures screenshots and technical evidence automatically, and syncs QA progress through Git.
 
 The product is designed for teams that still need human visual QA but want to remove the repetitive administrative work: opening URLs, tracking progress, taking screenshots, copying console errors, creating GitHub issues, and knowing which pages need re-review after developers ship fixes.
 

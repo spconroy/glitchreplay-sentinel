@@ -1,15 +1,15 @@
 # GlitchReplay Sentinel
 
-Free, open-source desktop QA workflow for reviewing sitemap pages, discovering missing app routes, and filing rich GitHub issues with screenshot and browser evidence.
+Free, open-source desktop QA workflow for reviewing every page on a website, using sitemaps and link discovery to find the pages, and filing rich GitHub issues with screenshot and browser evidence.
 
 Sentinel is built for human QA. It gives reviewers one place to load every page, approve pages that pass, and report pages that fail. When a site also has the GlitchReplay QA helper installed, Sentinel can dual-write the report into GlitchReplay so the active replay is attached automatically.
 
 ## What It Does
 
-- Loads URLs from sitemaps, including sitemap indexes.
+- Discovers website pages from sitemaps, including sitemap indexes.
 - Supports discover mode for apps without sitemaps by scraping internal links from pages as the reviewer browses.
 - Tracks review status locally: pending, approved, issue, updated, skipped, ignored.
-- Flags sitemap pages for re-review when `lastmod` is newer than the last QA inspection.
+- Flags pages for re-review when sitemap `lastmod` is newer than the last QA inspection.
 - Captures screenshots, console warnings/errors, load failures, browser metadata, and recent reviewer interactions.
 - Creates GitHub issues through the system-installed GitHub CLI.
 - Saves QA state as JSON files in the repo.

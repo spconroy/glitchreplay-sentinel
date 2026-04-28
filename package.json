@@ -2,7 +2,7 @@
   "name": "sitemap-sentinel",
   "version": "0.1.0",
   "private": true,
-  "description": "Desktop QA workflow for sitemap review and GitHub issue reporting.",
+  "description": "Desktop QA workflow for website page review and GitHub issue reporting.",
   "license": "MIT",
   "homepage": "https://glitchreplay.com/sentinel",
   "repository": {

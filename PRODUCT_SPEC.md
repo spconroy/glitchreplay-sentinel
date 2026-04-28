@@ -662,7 +662,13 @@ If console or network failures are present, the app may suggest a more specific 
 
 Each project may define a GlitchReplay DSN. When enabled, Sitemap Sentinel should push QA issue events to GlitchReplay automatically, including the same evidence captured for GitHub.
 
-The screenshot-provided DSN format appears Sentry-compatible. MVP should implement the integration through Sentry-compatible event ingestion, using the configured DSN as the destination. Before implementation, verify GlitchReplay's current attachment support and event envelope format. If native screenshot attachments are unsupported, the fallback is to commit the screenshot to the QA repo and include the screenshot path or repository URL in the GlitchReplay event metadata.
+GlitchReplay is Sentry SDK compatible. MVP should use an official Sentry SDK from the Electron main process, configured with the active project's GlitchReplay DSN. The SDK posts standard Sentry envelopes to GlitchReplay's ingest endpoint. This keeps the implementation aligned with GlitchReplay's documented contract instead of hand-rolling envelope ingestion.
+
+The DSN should be copied from the project settings exactly as shown. GlitchReplay DSNs use a Sentry-format URL such as `https://<public_key>@glitchreplay.com/0`. The `/0` path is expected for Sentry SDK compatibility; GlitchReplay authenticates the project by the DSN public key.
+
+If native screenshot attachments are supported by the selected Sentry SDK path, attach the captured PNG to the event envelope. If screenshot attachments are unsupported or unreliable, commit the screenshot to the QA repo and include the screenshot repository path or URL in the GlitchReplay event metadata.
+
+If target sites use a strict Content Security Policy and the app injects GlitchReplay/Sentry browser capture into the webview in a future release, those sites must allow `https://glitchreplay.com` in `connect-src`. MVP submission from Electron main process does not require target-site CSP changes.
 
 ### Trigger Behavior
 
@@ -696,6 +702,9 @@ The GlitchReplay event should include:
 - Browser metadata.
 - Recorded steps summary if action recording is enabled.
 - Tags for `qa_tool`, `project_id`, `brand_id`, `status`, `viewport`, and `reviewer`.
+- Sentry `environment` from project config.
+- Sentry `release` when a release or QA tool git SHA is available.
+- Sentry fingerprint override when the app should group all reports for the same page or same technical error.
 
 ### Failure Handling
 
@@ -1081,7 +1090,8 @@ Use a permissive license such as MIT unless there is a reason to choose otherwis
 ### Phase 6: GlitchReplay Submission
 
 - Validate project-level GlitchReplay DSNs.
-- Build Sentry-compatible QA issue events.
+- Initialize the Sentry SDK with the active project's GlitchReplay DSN.
+- Build Sentry events for QA issues.
 - Attach or reference screenshots.
 - Submit events on Create Issue.
 - Queue failed GlitchReplay submissions for retry.

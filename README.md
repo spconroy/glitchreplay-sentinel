@@ -58,6 +58,19 @@ QA progress is saved locally immediately. Git sync stages `config`, `data`, and 
 
 Default branch strategy is per-user, such as `qa/sean`.
 
-## Notes
+## GlitchReplay integration
 
-GlitchReplay integration is intentionally out of MVP scope. The current implementation focuses on reliable GitHub issue creation.
+Planned. Design + bridge code in [`docs/glitchreplay.md`](docs/glitchreplay.md). The GlitchReplay-side helper (`@glitchreplay/qa-report`) is shipped and exposes `window.glitchreplay.reportQA(...)` on any page that's wired it into its `Sentry.init`.
+
+### TODO: reviewer name capture
+
+Before wiring up the GlitchReplay path, Sentinel needs a reviewer-identity field — a name or email captured once and forwarded on every report. Without it, all QA reports surface as `(anonymous)` in the GlitchReplay dashboard and there's no way to bulk-filter by reviewer.
+
+Concrete pieces:
+
+- [ ] First-run dialog: "What name or email should appear on QA reports you file?" Persist to `data/profile.json` (or similar).
+- [ ] Default to `gh api user --jq '.login'` since `gh` auth is already required.
+- [ ] Settings UI: a single editable text field. Empty value should disable the GlitchReplay report path (fail loudly rather than file anonymous).
+- [ ] Plumb the captured value into `reportIssue` so it ends up in both the GitHub issue body ("Reported by …") and the `reportQA({ reviewer })` call.
+
+Once that's in, the bridge described in `docs/glitchreplay.md` can be wired into the existing **Report Issue** flow.

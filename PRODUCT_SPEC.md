@@ -136,6 +136,14 @@ Projects are grouped by brand because a real product may have multiple domains o
           "mode": "hybrid",
           "githubRepo": "org/superpower-marketing",
           "labels": ["qa", "website"],
+          "glitchReplay": {
+            "enabled": true,
+            "dsn": "https://public-key@glitchreplay.com/0",
+            "environment": "qa",
+            "sendOnIssue": true,
+            "sendOnApprove": false,
+            "includeScreenshot": true
+          },
           "webviewPartition": "persist:superpower-resume"
         },
         {
@@ -150,6 +158,14 @@ Projects are grouped by brand because a real product may have multiple domains o
           ],
           "githubRepo": "org/superpower-app",
           "labels": ["qa", "app"],
+          "glitchReplay": {
+            "enabled": true,
+            "dsn": "https://public-key@glitchreplay.com/0",
+            "environment": "qa",
+            "sendOnIssue": true,
+            "sendOnApprove": false,
+            "includeScreenshot": true
+          },
           "webviewPartition": "persist:superpower-resume"
         }
       ]
@@ -178,6 +194,11 @@ Projects are grouped by brand because a real product may have multiple domains o
 - `queryStringMode`: Project-level override for discovery URL query handling. Supported values: `strip-all`, `strip-tracking`, `preserve-all`, `allowlist`.
 - `allowedQueryParams`: Query params to preserve when `queryStringMode` is `allowlist`.
 - `recordActions`: Project-level override for passive action recording.
+- `glitchReplay`: Optional GlitchReplay integration settings for the project.
+- `glitchReplay.dsn`: Project DSN copied from GlitchReplay settings.
+- `glitchReplay.sendOnIssue`: Whether to push QA issue events to GlitchReplay when the reviewer creates an issue.
+- `glitchReplay.sendOnApprove`: Whether to push approved-page events to GlitchReplay. Default should be `false`.
+- `glitchReplay.includeScreenshot`: Whether the captured screenshot should be attached or referenced in the GlitchReplay event.
 
 ## 8. File Structure
 
@@ -538,6 +559,7 @@ When issue is created:
 - Capture screenshot.
 - Build issue body.
 - Run `gh issue create`.
+- Submit a GlitchReplay event if the active project has `glitchReplay.enabled` and `glitchReplay.sendOnIssue`.
 - Store returned issue URL and issue number if available.
 - Set status to `issue`.
 - Set `lastInspectedAt`.
@@ -636,7 +658,50 @@ Default:
 
 If console or network failures are present, the app may suggest a more specific title, but the reviewer should be able to edit it before submission.
 
-## 16. Git Sync
+## 16. GlitchReplay Integration
+
+Each project may define a GlitchReplay DSN. When enabled, Sitemap Sentinel should push QA issue events to GlitchReplay automatically, including the same evidence captured for GitHub.
+
+The screenshot-provided DSN format appears Sentry-compatible. MVP should implement the integration through Sentry-compatible event ingestion, using the configured DSN as the destination. Before implementation, verify GlitchReplay's current attachment support and event envelope format. If native screenshot attachments are unsupported, the fallback is to commit the screenshot to the QA repo and include the screenshot path or repository URL in the GlitchReplay event metadata.
+
+### Trigger Behavior
+
+Default behavior:
+
+- Send to GlitchReplay when the reviewer clicks Create Issue.
+- Do not send to GlitchReplay when the reviewer clicks Approve.
+- Include screenshot evidence by default.
+- Include console errors, network failures, metadata, and reviewer notes.
+- Continue creating the GitHub issue even if GlitchReplay submission fails.
+- Show a warning in the issue result panel when GlitchReplay submission fails.
+
+Optional behavior:
+
+- `sendOnApprove`: send low-severity QA pass events for approved pages.
+- `includeScreenshot`: disable screenshot upload/reference if screenshots contain sensitive data.
+- `environment`: tag events as `qa`, `staging`, `production`, or a project-specific value.
+
+### Event Payload
+
+The GlitchReplay event should include:
+
+- Event title.
+- Page URL.
+- Project ID and project name.
+- Brand ID and brand name.
+- Reviewer notes.
+- Screenshot attachment or screenshot repository path.
+- Console errors.
+- Network failures.
+- Browser metadata.
+- Recorded steps summary if action recording is enabled.
+- Tags for `qa_tool`, `project_id`, `brand_id`, `status`, `viewport`, and `reviewer`.
+
+### Failure Handling
+
+GlitchReplay submission must be treated as an external side effect, not as the source of truth. Local progress still saves, screenshots still save, and GitHub issue creation still proceeds when GlitchReplay is unavailable. Failed submissions should be queued for retry and shown in the sync/status area.
+
+## 17. Git Sync
 
 The app saves all progress locally immediately. Git sync runs in the background.
 
@@ -701,7 +766,7 @@ The app should display:
 - Auth required.
 - Conflict requires manual resolution.
 
-## 17. Authentication and Startup Checks
+## 18. Authentication and Startup Checks
 
 On startup, the app should check:
 
@@ -723,7 +788,7 @@ If `gh` is missing:
 - Show installation guidance.
 - If packaged with bundled binaries, use the bundled binary.
 
-## 18. User Interface
+## 19. User Interface
 
 ### Layout
 
@@ -801,7 +866,7 @@ Required controls:
 - `Cmd/Ctrl + S`: Sync now.
 - `Esc`: Close modal or blur current input.
 
-## 19. URL Discovery and Cross-Project Routing
+## 20. URL Discovery and Cross-Project Routing
 
 The app must support products with multiple related domains and subdomains.
 
@@ -818,7 +883,7 @@ If a discovered link belongs to another configured project:
 
 When the reviewer navigates manually to a URL that matches another project, the app should prompt to switch active project or automatically switch if configured.
 
-## 20. Action Recording and Future Replay
+## 21. Action Recording and Future Replay
 
 MVP should record actions passively so the team can build automation later without changing the data model.
 
@@ -855,7 +920,7 @@ If a replay step fails:
 - Update that step's selector bundle.
 - Continue replay.
 
-## 21. Security and Privacy
+## 22. Security and Privacy
 
 ### Sensitive Data
 
@@ -885,7 +950,7 @@ Provide config options:
 
 All Git and GitHub commands must be constructed using argument arrays, not unsanitized shell string interpolation.
 
-## 22. Error Handling
+## 23. Error Handling
 
 The app should handle:
 
@@ -902,7 +967,7 @@ The app should handle:
 
 Every failure should preserve local QA progress and show a clear recovery path.
 
-## 23. Packaging and Open Source Distribution
+## 24. Packaging and Open Source Distribution
 
 The project should be forkable and runnable locally.
 
@@ -921,6 +986,7 @@ gh auth login
 - How sitemap mode works.
 - How discover mode works.
 - How GitHub issue creation works.
+- How GlitchReplay DSN submission works.
 - How auto-sync works.
 - How to handle app subdomains.
 - How to avoid committing sensitive screenshots.
@@ -930,7 +996,7 @@ gh auth login
 
 Use a permissive license such as MIT unless there is a reason to choose otherwise.
 
-## 24. MVP Scope
+## 25. MVP Scope
 
 ### Must Have
 
@@ -945,10 +1011,12 @@ Use a permissive license such as MIT unless there is a reason to choose otherwis
 9. Console error capture.
 10. Network failure capture.
 11. GitHub issue creation through `gh`.
-12. Local JSON persistence.
-13. Git sync every 10 pages, 600 seconds idle, and app close.
-14. Delta filter based on sitemap `lastmod`.
-15. Persistent webview sessions for logged-in app subdomains.
+12. GlitchReplay DSN configuration per project.
+13. GlitchReplay issue event submission with screenshot evidence.
+14. Local JSON persistence.
+15. Git sync every 10 pages, 600 seconds idle, and app close.
+16. Delta filter based on sitemap `lastmod`.
+17. Persistent webview sessions for logged-in app subdomains.
 
 ### Should Have
 
@@ -969,7 +1037,7 @@ Use a permissive license such as MIT unless there is a reason to choose otherwis
 5. GitHub issue status polling.
 6. Automatic recheck queue when GitHub issues close.
 
-## 25. Implementation Roadmap
+## 26. Implementation Roadmap
 
 ### Phase 1: App Foundation
 
@@ -1010,7 +1078,16 @@ Use a permissive license such as MIT unless there is a reason to choose otherwis
 - Store issue metadata.
 - Handle issue creation errors.
 
-### Phase 6: Git Sync
+### Phase 6: GlitchReplay Submission
+
+- Validate project-level GlitchReplay DSNs.
+- Build Sentry-compatible QA issue events.
+- Attach or reference screenshots.
+- Submit events on Create Issue.
+- Queue failed GlitchReplay submissions for retry.
+- Show GlitchReplay submission status in the issue result panel.
+
+### Phase 7: Git Sync
 
 - Save changes locally immediately.
 - Track unsynced page count.
@@ -1019,14 +1096,14 @@ Use a permissive license such as MIT unless there is a reason to choose otherwis
 - Sync on app close.
 - Show sync state and failures.
 
-### Phase 7: Automation Foundation
+### Phase 8: Automation Foundation
 
 - Record interactions with selector bundles.
 - Save recordings per page.
 - Add recording preview.
 - Prepare Playwright-compatible replay format.
 
-## 26. Acceptance Criteria
+## 27. Acceptance Criteria
 
 The MVP is successful when:
 
@@ -1035,13 +1112,15 @@ The MVP is successful when:
 3. The app can run without a sitemap and discover internal URLs from hyperlinks on loaded pages.
 4. The reviewer can approve a page and see it removed from Needs Review.
 5. The reviewer can create a GitHub issue with notes, screenshot, console errors, network failures, and metadata.
-6. The app maps each URL to the correct GitHub repository.
-7. The app persists progress after restart.
-8. The app flags pages as Updated when sitemap `lastmod` is newer than the last inspection timestamp.
-9. The app syncs QA data through Git after 10 processed pages, after 600 seconds idle, and on exit.
-10. The app never loses local progress when GitHub or Git sync fails.
+6. The reviewer can configure a GlitchReplay DSN per project.
+7. When configured, Create Issue sends a GlitchReplay event with screenshot evidence and captured technical context.
+8. The app maps each URL to the correct GitHub repository and GlitchReplay project.
+9. The app persists progress after restart.
+10. The app flags pages as Updated when sitemap `lastmod` is newer than the last inspection timestamp.
+11. The app syncs QA data through Git after 10 processed pages, after 600 seconds idle, and on exit.
+12. The app never loses local progress when GitHub, GlitchReplay, or Git sync fails.
 
-## 27. Key Product Principles
+## 28. Key Product Principles
 
 1. Human-first QA: the reviewer stays in control.
 2. Evidence by default: every issue should be useful to a developer immediately.

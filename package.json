@@ -1,5 +1,5 @@
 {
-  "name": "sitemap-sentinel",
+  "name": "glitchreplay-sentinel",
   "version": "0.1.0",
   "private": true,
   "description": "Desktop QA workflow for website page review and GitHub issue reporting.",

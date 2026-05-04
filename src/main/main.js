@@ -440,7 +440,7 @@ async function ensureSyncBranch(config) {
   const dirty = (await git(["status", "--short"])).stdout.trim();
   let stashed = false;
   if (dirty) {
-    await git(["stash", "push", "--include-untracked", "-m", "sitemap-sentinel-branch-switch"], { timeout: 60000 });
+    await git(["stash", "push", "--include-untracked", "-m", "glitchreplay-sentinel-branch-switch"], { timeout: 60000 });
     stashed = true;
   }
 
@@ -719,7 +719,7 @@ async function createWindow() {
     height: 920,
     minWidth: 1100,
     minHeight: 720,
-    title: "Sitemap Sentinel",
+    title: "GlitchReplay Sentinel",
     webPreferences: {
       preload: path.join(__dirname, "../preload/renderer.js"),
       contextIsolation: true,

@@ -276,7 +276,7 @@ export function App() {
         brandId: brand.id,
         projectId: project.id,
         pageUrl: selectedPage.url,
-        notes: notes.trim() || "Technical issue captured by Sitemap Sentinel.",
+        notes: notes.trim() || "Technical issue captured by GlitchReplay Sentinel.",
         reviewer: reviewer.trim(),
         webContentsId,
         evidence
@@ -320,7 +320,7 @@ export function App() {
     return (
       <main className="loading-screen">
         <Loader2 className="spin" />
-        <span>Loading Sitemap Sentinel</span>
+        <span>Loading GlitchReplay Sentinel</span>
       </main>
     );
   }
@@ -330,7 +330,7 @@ export function App() {
       <aside className="sidebar">
         <div className="brand-row">
           <div>
-            <h1>Sitemap Sentinel</h1>
+            <h1>GlitchReplay Sentinel</h1>
             <p>{bootstrap.user}</p>
           </div>
           <button className="icon-button" onClick={syncNow} title="Sync now">

@@ -18,6 +18,7 @@ declare global {
     sentinel: {
       bootstrap: () => Promise<Bootstrap>;
       saveProfile: (profile: Profile) => Promise<Profile>;
+      saveConfig: (config: AppConfig) => Promise<AppConfig>;
       refreshProject: (payload: ProjectPayload) => Promise<ProjectState>;
       savePageAction: (payload: PageActionPayload) => Promise<{ page: QaPage }>;
       reportIssue: (payload: ReportIssuePayload) => Promise<{
@@ -40,16 +41,21 @@ export type AppConfig = {
     enabled?: boolean;
     batchPageCount?: number;
     inactivitySeconds?: number;
-    branchStrategy?: string;
+    branchStrategy?: "per-user" | "per-project" | "current-branch";
     branchPrefix?: string;
+    allowSameBranchCollaboration?: boolean;
+  };
+  github?: {
+    cliPreference?: "system-first" | "bundled-first" | "system-only" | "bundled-only";
+    bundledGhFallback?: boolean;
   };
   screenshots?: {
-    storage?: string;
+    storage?: "repo" | "external";
     commitScreenshots?: boolean;
     deleteAfterIssueCreation?: boolean;
   };
   discovery?: {
-    queryStringMode?: string;
+    queryStringMode?: "strip-all" | "strip-tracking" | "allowlist" | "preserve";
     trackingParams?: string[];
   };
   brands: Brand[];
@@ -72,6 +78,11 @@ export type Project = {
   labels?: string[];
   webviewPartition?: string;
   recordActions?: boolean;
+  allowedDomains?: string[];
+  includeSubdomains?: boolean;
+  ignorePatterns?: string[];
+  allowedQueryParams?: string[];
+  queryStringMode?: "strip-all" | "strip-tracking" | "allowlist" | "preserve";
 };
 
 export type Bootstrap = {

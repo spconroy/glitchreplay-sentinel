@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("sentinel", {
   bootstrap: () => ipcRenderer.invoke("app:bootstrap"),
   saveProfile: (profile) => ipcRenderer.invoke("profile:save", profile),
+  saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   refreshProject: (payload) => ipcRenderer.invoke("project:refresh", payload),
   savePageAction: (payload) => ipcRenderer.invoke("page:action", payload),
   reportIssue: (payload) => ipcRenderer.invoke("issue:report", payload),

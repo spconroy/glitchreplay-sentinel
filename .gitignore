@@ -3,3 +3,8 @@ dist/
 .DS_Store
 npm-debug.log*
 *.log
+
+# Local runtime state
+config/projects.json
+data/
+screenshots/

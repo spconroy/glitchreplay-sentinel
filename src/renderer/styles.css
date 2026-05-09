@@ -444,3 +444,298 @@ webview {
   overflow-wrap: anywhere;
   padding: 10px;
 }
+
+.brand-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.settings-shell {
+  background: #f4f6f8;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.settings-header {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #d9dee5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px 20px;
+}
+
+.settings-back {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  color: #20242a;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.settings-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+}
+
+.settings-tab.active {
+  background: #20242a;
+  color: #ffffff;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  color: #20242a;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.settings-button.primary {
+  background: #1f7a3f;
+  border-color: #1f7a3f;
+  color: #ffffff;
+}
+
+.settings-button.primary:disabled {
+  background: #cfd6df;
+  border-color: #cfd6df;
+  color: #ffffff;
+}
+
+.settings-button.ghost {
+  background: transparent;
+}
+
+.settings-button.danger {
+  color: #a9361f;
+}
+
+.settings-button.danger.ghost:hover {
+  background: #fde7e3;
+}
+
+.settings-error {
+  background: #ffe8e6;
+  border-bottom: 1px solid #f3c1b9;
+  color: #b3261e;
+  font-size: 13px;
+  padding: 10px 20px;
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.brands-pane {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 280px 1fr;
+  min-height: 100%;
+}
+
+.brand-list {
+  background: #ffffff;
+  border: 1px solid #d9dee5;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: fit-content;
+  padding: 14px;
+  position: sticky;
+  top: 0;
+}
+
+.brand-list-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.brand-list-head h2 {
+  font-size: 14px;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.brand-list-item {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  gap: 2px;
+  padding: 10px;
+  text-align: left;
+}
+
+.brand-list-item.active {
+  background: #eef4ff;
+  border-color: #c5d6f5;
+}
+
+.brand-list-name {
+  color: #1f2937;
+  font-weight: 650;
+}
+
+.brand-list-meta {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.brand-editor-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #d9dee5;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.card-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.card-head h3,
+.card-head h4 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.card-head h4 {
+  font-size: 14px;
+}
+
+.project-card {
+  background: #f7f9fb;
+  border: 1px solid #e1e6ed;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-field-label {
+  color: #20242a;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.settings-field-hint {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.settings-field input,
+.settings-field select,
+.settings-field textarea {
+  width: 100%;
+}
+
+.settings-field textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  min-height: 64px;
+}
+
+.checkbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox {
+  align-items: center;
+  color: #20242a;
+  display: flex;
+  flex-direction: row;
+  font-size: 13px;
+  font-weight: 500;
+  gap: 8px;
+  margin: 0;
+  text-transform: none;
+}
+
+.checkbox input {
+  height: 16px;
+  width: 16px;
+}
+
+.global-pane,
+.profile-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 12px;
+  margin: 0;
+}

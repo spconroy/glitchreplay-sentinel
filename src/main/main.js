@@ -89,6 +89,138 @@ async function loadConfig() {
   return readJson(CONFIG_PATH, null);
 }
 
+function sanitizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function sanitizeProject(raw) {
+  const project = {
+    id: String(raw.id || "").trim(),
+    name: String(raw.name || "").trim(),
+    rootUrl: String(raw.rootUrl || "").trim(),
+    mode: ["sitemap", "discover", "hybrid"].includes(raw.mode) ? raw.mode : "hybrid",
+    githubRepo: String(raw.githubRepo || "").trim()
+  };
+  if (!project.id || !project.name) {
+    throw new Error("Each project needs an id and name.");
+  }
+  if (!project.rootUrl) {
+    throw new Error(`Project "${project.name}" needs a rootUrl.`);
+  }
+
+  const sitemaps = sanitizeStringArray(raw.sitemaps);
+  if (sitemaps.length) project.sitemaps = sitemaps;
+  const seedUrls = sanitizeStringArray(raw.seedUrls);
+  if (seedUrls.length) project.seedUrls = seedUrls;
+  const labels = sanitizeStringArray(raw.labels);
+  if (labels.length) project.labels = labels;
+  const allowedDomains = sanitizeStringArray(raw.allowedDomains);
+  if (allowedDomains.length) project.allowedDomains = allowedDomains;
+  const ignorePatterns = sanitizeStringArray(raw.ignorePatterns);
+  if (ignorePatterns.length) project.ignorePatterns = ignorePatterns;
+  const allowedQueryParams = sanitizeStringArray(raw.allowedQueryParams);
+  if (allowedQueryParams.length) project.allowedQueryParams = allowedQueryParams;
+
+  if (typeof raw.webviewPartition === "string" && raw.webviewPartition.trim()) {
+    project.webviewPartition = raw.webviewPartition.trim();
+  }
+  if (raw.recordActions === false) project.recordActions = false;
+  else if (raw.recordActions === true) project.recordActions = true;
+  if (raw.includeSubdomains === true) project.includeSubdomains = true;
+  if (["strip-all", "strip-tracking", "allowlist", "preserve"].includes(raw.queryStringMode)) {
+    project.queryStringMode = raw.queryStringMode;
+  }
+  return project;
+}
+
+function sanitizeBrand(raw) {
+  const brand = {
+    id: String(raw.id || "").trim(),
+    name: String(raw.name || "").trim(),
+    projects: []
+  };
+  if (!brand.id || !brand.name) {
+    throw new Error("Each brand needs an id and name.");
+  }
+  const projects = Array.isArray(raw.projects) ? raw.projects.map(sanitizeProject) : [];
+  const projectIds = new Set();
+  for (const project of projects) {
+    if (projectIds.has(project.id)) {
+      throw new Error(`Duplicate project id "${project.id}" in brand "${brand.name}".`);
+    }
+    projectIds.add(project.id);
+  }
+  brand.projects = projects;
+  return brand;
+}
+
+function sanitizeConfig(raw) {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Invalid configuration payload.");
+  }
+  const config = { schemaVersion: 1 };
+
+  const sync = raw.sync || {};
+  config.sync = {
+    enabled: sync.enabled !== false,
+    batchPageCount: Number.isFinite(sync.batchPageCount) ? Math.max(1, Math.floor(sync.batchPageCount)) : 10,
+    inactivitySeconds: Number.isFinite(sync.inactivitySeconds)
+      ? Math.max(30, Math.floor(sync.inactivitySeconds))
+      : 600,
+    branchStrategy: ["per-user", "per-project", "current-branch"].includes(sync.branchStrategy)
+      ? sync.branchStrategy
+      : "per-user",
+    branchPrefix: String(sync.branchPrefix || "qa").trim() || "qa",
+    allowSameBranchCollaboration: sync.allowSameBranchCollaboration === true
+  };
+
+  const github = raw.github || {};
+  config.github = {
+    cliPreference: ["system-first", "bundled-first", "system-only", "bundled-only"].includes(github.cliPreference)
+      ? github.cliPreference
+      : "system-first",
+    bundledGhFallback: github.bundledGhFallback !== false
+  };
+
+  const screenshots = raw.screenshots || {};
+  config.screenshots = {
+    storage: ["repo", "external"].includes(screenshots.storage) ? screenshots.storage : "repo",
+    commitScreenshots: screenshots.commitScreenshots !== false,
+    deleteAfterIssueCreation: screenshots.deleteAfterIssueCreation === true
+  };
+
+  const discovery = raw.discovery || {};
+  config.discovery = {
+    queryStringMode: ["strip-all", "strip-tracking", "allowlist", "preserve"].includes(discovery.queryStringMode)
+      ? discovery.queryStringMode
+      : "strip-tracking",
+    trackingParams: sanitizeStringArray(discovery.trackingParams).length
+      ? sanitizeStringArray(discovery.trackingParams)
+      : ["utm_*", "fbclid", "gclid", "msclkid"]
+  };
+
+  const brands = Array.isArray(raw.brands) ? raw.brands.map(sanitizeBrand) : [];
+  const brandIds = new Set();
+  for (const brand of brands) {
+    if (brandIds.has(brand.id)) {
+      throw new Error(`Duplicate brand id "${brand.id}".`);
+    }
+    brandIds.add(brand.id);
+  }
+  config.brands = brands;
+
+  return config;
+}
+
+async function saveConfig(rawConfig) {
+  const config = sanitizeConfig(rawConfig);
+  await writeJson(CONFIG_PATH, config);
+  return config;
+}
+
 async function loadProfile() {
   const fallbackReviewer = await currentGitHubUser();
   const profile = await readJson(PROFILE_PATH, {
@@ -748,6 +880,10 @@ ipcMain.handle("app:bootstrap", async () => {
 
 ipcMain.handle("profile:save", async (_event, profile) => {
   return saveProfile(profile);
+});
+
+ipcMain.handle("config:save", async (_event, config) => {
+  return saveConfig(config);
 });
 
 ipcMain.handle("project:refresh", async (_event, payload) => {

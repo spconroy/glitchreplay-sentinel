@@ -10,10 +10,12 @@ import {
   RefreshCw,
   Search,
   Send,
+  Settings,
   SkipForward,
   X
 } from "lucide-react";
 import type { Bootstrap, Brand, Evidence, Project, QaPage } from "./types";
+import { SettingsView } from "./SettingsView";
 
 type FilterKey = "needs" | "new" | "updated" | "issues" | "approved" | "skipped" | "ignored" | "all";
 
@@ -72,6 +74,7 @@ export function App() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [webContentsId, setWebContentsId] = useState<number | undefined>();
+  const [view, setView] = useState<"review" | "settings">("review");
 
   useEffect(() => {
     window.sentinel.bootstrap().then((result) => {
@@ -325,6 +328,34 @@ export function App() {
     );
   }
 
+  if (view === "settings") {
+    return (
+      <SettingsView
+        config={bootstrap.config}
+        profile={bootstrap.profile}
+        onClose={() => setView("review")}
+        onSaved={({ config, profile }) => {
+          setBootstrap((current) => (current ? { ...current, config, profile } : current));
+          setReviewer(profile.reviewer || "");
+          const stillHasBrand = config.brands.some((brand) => brand.id === brandId);
+          if (!stillHasBrand) {
+            const firstBrand = config.brands[0];
+            const firstProject = firstBrand?.projects[0];
+            setBrandId(firstBrand?.id || "");
+            setProjectId(firstProject?.id || "");
+          } else {
+            const currentBrand = config.brands.find((brand) => brand.id === brandId);
+            const stillHasProject = currentBrand?.projects.some((project) => project.id === projectId);
+            if (!stillHasProject) {
+              setProjectId(currentBrand?.projects[0]?.id || "");
+            }
+          }
+          setView("review");
+        }}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -333,9 +364,14 @@ export function App() {
             <h1>GlitchReplay Sentinel</h1>
             <p>{bootstrap.user}</p>
           </div>
-          <button className="icon-button" onClick={syncNow} title="Sync now">
-            <RefreshCw size={18} />
-          </button>
+          <div className="brand-row-actions">
+            <button className="icon-button" onClick={() => setView("settings")} title="Settings">
+              <Settings size={18} />
+            </button>
+            <button className="icon-button" onClick={syncNow} title="Sync now">
+              <RefreshCw size={18} />
+            </button>
+          </div>
         </div>
 
         <div className={bootstrap.gh.authenticated ? "auth ok" : "auth warn"}>

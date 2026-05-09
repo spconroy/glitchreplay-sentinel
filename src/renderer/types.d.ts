@@ -19,6 +19,7 @@ declare global {
       bootstrap: () => Promise<Bootstrap>;
       saveProfile: (profile: Profile) => Promise<Profile>;
       saveConfig: (config: AppConfig) => Promise<AppConfig>;
+      detectSitemaps: (rootUrl: string) => Promise<{ sitemaps: string[] }>;
       refreshProject: (payload: ProjectPayload) => Promise<ProjectState>;
       savePageAction: (payload: PageActionPayload) => Promise<{ page: QaPage }>;
       reportIssue: (payload: ReportIssuePayload) => Promise<{

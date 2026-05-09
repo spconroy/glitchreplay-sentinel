@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("sentinel", {
   bootstrap: () => ipcRenderer.invoke("app:bootstrap"),
   saveProfile: (profile) => ipcRenderer.invoke("profile:save", profile),
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
+  detectSitemaps: (rootUrl) => ipcRenderer.invoke("sitemaps:detect", { rootUrl }),
   refreshProject: (payload) => ipcRenderer.invoke("project:refresh", payload),
   savePageAction: (payload) => ipcRenderer.invoke("page:action", payload),
   reportIssue: (payload) => ipcRenderer.invoke("issue:report", payload),

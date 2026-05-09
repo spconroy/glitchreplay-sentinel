@@ -221,6 +221,71 @@ async function saveConfig(rawConfig) {
   return config;
 }
 
+async function detectSitemapsFromRoot(rootUrl) {
+  if (!rootUrl) return [];
+  let base;
+  try {
+    base = new URL(rootUrl);
+  } catch {
+    return [];
+  }
+
+  const found = new Set();
+  const fetchOpts = { redirect: "follow", signal: AbortSignal.timeout(8000) };
+
+  try {
+    const robotsUrl = new URL("/robots.txt", base).href;
+    const response = await fetch(robotsUrl, fetchOpts);
+    if (response.ok) {
+      const text = await response.text();
+      for (const line of text.split(/\r?\n/)) {
+        const match = line.match(/^\s*sitemap\s*:\s*(\S+)/i);
+        if (match) {
+          try {
+            found.add(new URL(match[1], base).href);
+          } catch {
+            // Skip malformed URLs.
+          }
+        }
+      }
+    }
+  } catch {
+    // robots.txt is optional — fall through to standard paths.
+  }
+
+  if (found.size === 0) {
+    for (const path of ["/sitemap.xml", "/sitemap_index.xml"]) {
+      try {
+        const candidate = new URL(path, base).href;
+        const response = await fetch(candidate, fetchOpts);
+        if (!response.ok) continue;
+        const contentType = (response.headers.get("content-type") || "").toLowerCase();
+        if (contentType.includes("xml")) {
+          found.add(candidate);
+          continue;
+        }
+        const reader = response.body?.getReader();
+        if (!reader) continue;
+        const { value } = await reader.read();
+        try {
+          await reader.cancel();
+        } catch {
+          // Already cancelled.
+        }
+        if (!value) continue;
+        const head = new TextDecoder().decode(value).slice(0, 256).trimStart();
+        if (head.startsWith("<?xml") || head.startsWith("<urlset") || head.startsWith("<sitemapindex")) {
+          found.add(candidate);
+        }
+      } catch {
+        // Skip unreachable candidates.
+      }
+    }
+  }
+
+  return Array.from(found);
+}
+
 async function loadProfile() {
   const fallbackReviewer = await currentGitHubUser();
   const profile = await readJson(PROFILE_PATH, {
@@ -347,8 +412,12 @@ async function loadProjectState(config, brandId, projectId) {
   const warnings = [];
   const sitemapPages = [];
 
-  if ((project.mode === "sitemap" || project.mode === "hybrid") && project.sitemaps?.length) {
-    for (const sitemap of project.sitemaps) {
+  if (project.mode === "sitemap" || project.mode === "hybrid") {
+    let sitemapsToTry = project.sitemaps || [];
+    if (sitemapsToTry.length === 0) {
+      sitemapsToTry = await detectSitemapsFromRoot(project.rootUrl);
+    }
+    for (const sitemap of sitemapsToTry) {
       try {
         sitemapPages.push(...(await fetchSitemapUrls(sitemap)));
       } catch (error) {
@@ -884,6 +953,11 @@ ipcMain.handle("profile:save", async (_event, profile) => {
 
 ipcMain.handle("config:save", async (_event, config) => {
   return saveConfig(config);
+});
+
+ipcMain.handle("sitemaps:detect", async (_event, payload) => {
+  const sitemaps = await detectSitemapsFromRoot(payload?.rootUrl || "");
+  return { sitemaps };
 });
 
 ipcMain.handle("project:refresh", async (_event, payload) => {

@@ -691,6 +691,59 @@ webview {
   font-size: 11px;
 }
 
+.settings-field-required {
+  color: #b3261e;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+.settings-field-optional {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  text-transform: none;
+}
+
+.disclosure {
+  border-top: 1px dashed #d9dee5;
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.disclosure-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #4b5563;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 4px;
+  letter-spacing: 0.02em;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.disclosure-toggle:hover {
+  color: #20242a;
+}
+
+.disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.field-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .settings-field input,
 .settings-field select,
 .settings-field textarea {

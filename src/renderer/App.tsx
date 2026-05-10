@@ -200,6 +200,21 @@ export function App() {
       }
       setPageLoading(false);
     };
+    const onDidNavigate = (event: any) => {
+      if (!brand || !project) return;
+      const navigatedUrl = event.url;
+      if (!navigatedUrl) return;
+      window.sentinel
+        .saveDiscoveredUrls({
+          brandId: brand.id,
+          projectId: project.id,
+          pageUrl: navigatedUrl,
+          urls: [navigatedUrl]
+        })
+        .then((result) => {
+          if (result.added.length > 0) refreshProject(brand.id, project.id);
+        });
+    };
     const onIpc = (event: any) => {
       if (!brand || !project) return;
       if (event.channel === "discovered-urls") {
@@ -230,6 +245,8 @@ export function App() {
     webview.addEventListener("dom-ready", onDomReady);
     webview.addEventListener("console-message", onConsole);
     webview.addEventListener("did-fail-load", onFailLoad);
+    webview.addEventListener("did-navigate", onDidNavigate);
+    webview.addEventListener("did-navigate-in-page", onDidNavigate);
     webview.addEventListener("ipc-message", onIpc);
 
     return () => {
@@ -237,6 +254,8 @@ export function App() {
       webview.removeEventListener("dom-ready", onDomReady);
       webview.removeEventListener("console-message", onConsole);
       webview.removeEventListener("did-fail-load", onFailLoad);
+      webview.removeEventListener("did-navigate", onDidNavigate);
+      webview.removeEventListener("did-navigate-in-page", onDidNavigate);
       webview.removeEventListener("ipc-message", onIpc);
     };
   }, [brand, project, selectedUrl]);

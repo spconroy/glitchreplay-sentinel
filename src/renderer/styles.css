@@ -345,6 +345,55 @@ textarea {
   width: 34px;
 }
 
+.tab-bar {
+  background: #eef1f5;
+  border-bottom: 1px solid #d9dee5;
+  display: flex;
+  flex-shrink: 0;
+  gap: 1px;
+  overflow-x: auto;
+  padding: 4px 8px 0;
+}
+
+.tab {
+  align-items: center;
+  background: #dce2ea;
+  border: 1px solid #d9dee5;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: #4b5563;
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+  max-width: 200px;
+  padding: 5px 8px;
+}
+
+.tab.active {
+  background: #ffffff;
+  color: #111827;
+  font-weight: 500;
+}
+
+.tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  align-items: center;
+  border-radius: 3px;
+  display: flex;
+  flex-shrink: 0;
+  padding: 1px;
+}
+
+.tab-close:hover {
+  background: #d1d5db;
+}
+
 .webview-wrap {
   background: #dce2ea;
   display: flex;

@@ -682,7 +682,31 @@ function githubRawUrl(remote, branch, relativePath) {
     .join("/")}`;
 }
 
-async function screenshotReference(filePath) {
+async function uploadScreenshotToRepo(filePath, githubRepo) {
+  const content = await fs.readFile(filePath);
+  const base64 = content.toString("base64");
+  const fileName = path.basename(filePath);
+  const repoPath = `qa-screenshots/${fileName}`;
+  try {
+    const result = await execFileAsync("gh", [
+      "api", "--method", "PUT",
+      `repos/${githubRepo}/contents/${repoPath}`,
+      "-f", `message=QA screenshot: ${fileName}`,
+      "-f", `content=${base64}`
+    ], { cwd: repoRoot, timeout: 30000, maxBuffer: 20 * 1024 * 1024 });
+    const data = JSON.parse(result.stdout);
+    const url = data.content?.download_url;
+    return url ? url.split("?")[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function screenshotReference(filePath, githubRepo) {
+  if (githubRepo) {
+    const uploaded = await uploadScreenshotToRepo(filePath, githubRepo);
+    if (uploaded) return uploaded;
+  }
   const absolute = path.resolve(filePath);
   if (!absolute.startsWith(repoRoot + path.sep)) return absolute;
   const relative = path.relative(repoRoot, filePath);
@@ -747,7 +771,10 @@ ${markdownList(recordedSteps.slice(-20), (entry) => `- ${entry.type} ${entry.sel
 function issueTitle(project, pageUrl) {
   const url = new URL(pageUrl);
   const pathName = url.pathname === "/" ? "/" : url.pathname.replace(/\/$/, "");
-  return `[QA] ${project.name}: ${pathName || url.hostname}`;
+  const search = url.search ? url.search.slice(0, 80) : "";
+  const pagePart = `${pathName || url.hostname}${search}`;
+  const title = `[QA] ${project.name}: ${pagePart}`;
+  return title.length > 150 ? title.slice(0, 147) + "..." : title;
 }
 
 async function sendGlitchReplayQaReport(webContentsId, payload) {
@@ -800,7 +827,7 @@ async function createGitHubIssue(config, payload) {
   const reviewer = payload.reviewer || profile.reviewer || (await currentGitHubUser());
   if (payload.webContentsId) {
     screenshotFile = await captureScreenshot(brand.id, project.id, payload.pageUrl, payload.webContentsId);
-    screenshotRef = await screenshotReference(screenshotFile);
+    screenshotRef = await screenshotReference(screenshotFile, project.githubRepo);
   }
 
   const body = buildIssueBody({

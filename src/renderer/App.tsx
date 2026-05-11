@@ -58,13 +58,17 @@ function emptyEvidence(): Evidence {
 
 export function App() {
   const webviewRef = useRef<any>(null);
+  const selectedUrlRef = useRef("");
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [brandId, setBrandId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [pages, setPages] = useState<QaPage[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [selectedUrl, setSelectedUrl] = useState("");
+  const [selectedUrl, _setSelectedUrl] = useState("");
   const [webviewSrc, setWebviewSrc] = useState("");
+  const [tabs, setTabs] = useState<Array<{ id: number; url: string }>>([]);
+  const tabIdRef = useRef(0);
+  const setSelectedUrl = (url: string) => { selectedUrlRef.current = url; _setSelectedUrl(url); };
   const [filter, setFilter] = useState<FilterKey>("needs");
   const [query, setQuery] = useState("");
   const [notes, setNotes] = useState("");
@@ -196,7 +200,7 @@ export function App() {
           networkFailures: [
             ...current.networkFailures,
             {
-              url: event.validatedURL || selectedUrl,
+              url: event.validatedURL || selectedUrlRef.current,
               error: event.errorDescription,
               timestamp: new Date().toISOString()
             }
@@ -247,6 +251,39 @@ export function App() {
       }
     };
 
+    const onNewWindow = (event: any) => {
+      const url = event.url;
+      if (url) {
+        event.preventDefault();
+        setEvidence((current) => ({
+          ...current,
+          consoleErrors: [
+            ...current.consoleErrors,
+            {
+              level: "warning",
+              message: `Popup intercepted: ${url} (disposition: ${event.disposition || "new-window"})`,
+              source: "sentinel",
+              timestamp: new Date().toISOString()
+            }
+          ]
+        }));
+        setTabs((current) => {
+          if (current.length === 0) {
+            const parentId = ++tabIdRef.current;
+            const childId = ++tabIdRef.current;
+            return [
+              { id: parentId, url: selectedUrlRef.current },
+              { id: childId, url }
+            ];
+          }
+          const childId = ++tabIdRef.current;
+          return [...current, { id: childId, url }];
+        });
+        setWebviewSrc(url);
+        setSelectedUrl(url);
+      }
+    };
+
     webview.addEventListener("did-start-loading", onStart);
     webview.addEventListener("dom-ready", onDomReady);
     webview.addEventListener("console-message", onConsole);
@@ -254,6 +291,7 @@ export function App() {
     webview.addEventListener("did-navigate", onDidNavigate);
     webview.addEventListener("did-navigate-in-page", onDidNavigate);
     webview.addEventListener("ipc-message", onIpc);
+    webview.addEventListener("new-window", onNewWindow);
 
     return () => {
       webview.removeEventListener("did-start-loading", onStart);
@@ -263,8 +301,9 @@ export function App() {
       webview.removeEventListener("did-navigate", onDidNavigate);
       webview.removeEventListener("did-navigate-in-page", onDidNavigate);
       webview.removeEventListener("ipc-message", onIpc);
+      webview.removeEventListener("new-window", onNewWindow);
     };
-  }, [brand, project, selectedUrl]);
+  }, [brand, project]);
 
   function selectNextPage(currentUrl = selectedUrl) {
     const currentIndex = filteredPages.findIndex((page) => page.url === currentUrl);
@@ -482,7 +521,7 @@ export function App() {
             <button
               key={page.url}
               className={page.url === selectedUrl ? "page-row selected" : "page-row"}
-              onClick={() => { setSelectedUrl(page.url); setWebviewSrc(page.url); }}
+              onClick={() => { setSelectedUrl(page.url); setWebviewSrc(page.url); setTabs([]); }}
             >
               <span className={statusClass(page.status)}>{statusLabel(page.status)}</span>
               <span className="page-url">{shortUrl(page.url)}</span>
@@ -508,6 +547,45 @@ export function App() {
             </button>
           </div>
         </header>
+
+        {tabs.length > 0 && (
+          <div className="tab-bar">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={tab.url === selectedUrl ? "tab active" : "tab"}
+                onClick={() => { setSelectedUrl(tab.url); setWebviewSrc(tab.url); }}
+              >
+                <span className="tab-label">{shortUrl(tab.url)}</span>
+                {tabs.length > 1 && (
+                  <span
+                    className="tab-close"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTabs((current) => {
+                        const remaining = current.filter((t) => t.id !== tab.id);
+                        if (remaining.length <= 1) {
+                          if (tab.url === selectedUrl && remaining[0]) {
+                            setSelectedUrl(remaining[0].url);
+                            setWebviewSrc(remaining[0].url);
+                          }
+                          return [];
+                        }
+                        if (tab.url === selectedUrl) {
+                          setSelectedUrl(remaining[0].url);
+                          setWebviewSrc(remaining[0].url);
+                        }
+                        return remaining;
+                      });
+                    }}
+                  >
+                    <X size={12} />
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="webview-wrap">
           {webviewSrc ? (

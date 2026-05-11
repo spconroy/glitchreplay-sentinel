@@ -11,12 +11,15 @@ const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../..");
+const stateRoot = process.env.SENTINEL_HOME
+  ? path.resolve(process.env.SENTINEL_HOME)
+  : repoRoot;
 
-const CONFIG_PATH = path.join(repoRoot, "config/projects.json");
+const CONFIG_PATH = path.join(stateRoot, "config/projects.json");
 const EXAMPLE_CONFIG_PATH = path.join(repoRoot, "config/projects.example.json");
-const DATA_ROOT = path.join(repoRoot, "data/brands");
-const PROFILE_PATH = path.join(repoRoot, "data/profile.json");
-const SCREENSHOT_ROOT = path.join(repoRoot, "screenshots");
+const DATA_ROOT = path.join(stateRoot, "data/brands");
+const PROFILE_PATH = path.join(stateRoot, "data/profile.json");
+const SCREENSHOT_ROOT = path.join(stateRoot, "screenshots");
 
 let mainWindow = null;
 let pendingPageCount = 0;
@@ -680,6 +683,8 @@ function githubRawUrl(remote, branch, relativePath) {
 }
 
 async function screenshotReference(filePath) {
+  const absolute = path.resolve(filePath);
+  if (!absolute.startsWith(repoRoot + path.sep)) return absolute;
   const relative = path.relative(repoRoot, filePath);
   try {
     const remote = (await git(["config", "--get", "remote.origin.url"])).stdout.trim();
@@ -821,11 +826,26 @@ async function createGitHubIssue(config, payload) {
     "--body-file",
     bodyPath
   ];
-  for (const label of project.labels || []) {
+  const labels = project.labels || [];
+  for (const label of labels) {
     args.push("--label", label);
   }
 
-  const result = await execFileAsync("gh", args, { cwd: repoRoot, timeout: 60000 });
+  let result;
+  try {
+    result = await execFileAsync("gh", args, { cwd: repoRoot, timeout: 60000 });
+  } catch (error) {
+    if (labels.length > 0 && error.stderr && error.stderr.includes("label")) {
+      for (const label of labels) {
+        try {
+          await execFileAsync("gh", ["label", "create", label, "--repo", project.githubRepo, "--force"], { cwd: repoRoot, timeout: 15000 });
+        } catch { /* label may already exist */ }
+      }
+      result = await execFileAsync("gh", args, { cwd: repoRoot, timeout: 60000 });
+    } else {
+      throw error;
+    }
+  }
   const issueUrl = result.stdout.trim();
   const issueNumberMatch = issueUrl.match(/\/issues\/(\d+)/);
   const issueNumber = issueNumberMatch ? Number(issueNumberMatch[1]) : null;
@@ -864,14 +884,14 @@ async function createGitHubIssue(config, payload) {
     issueNumber,
     reviewer,
     glitchReplayEventId: glitchReplay.eventId || null,
-    screenshotPath: screenshotFile ? path.relative(repoRoot, screenshotFile) : null
+    screenshotPath: screenshotFile ? path.relative(stateRoot, screenshotFile) : null
   });
 
   return {
     issueUrl,
     page: saved,
     glitchReplay,
-    screenshotPath: screenshotFile ? path.relative(repoRoot, screenshotFile) : null
+    screenshotPath: screenshotFile ? path.relative(stateRoot, screenshotFile) : null
   };
 }
 
@@ -882,7 +902,11 @@ async function syncGit(config) {
   const status = (await git(["status", "--short"])).stdout.trim();
   if (!status) return { skipped: true, reason: "No local changes." };
 
-  await git(["add", "config", "data", "screenshots"]);
+  const gitPaths = ["config", "data", "screenshots"].filter(
+    (p) => path.join(stateRoot, p).startsWith(repoRoot + path.sep)
+  );
+  if (gitPaths.length === 0) return { skipped: true, reason: "State lives outside the repo; nothing to commit." };
+  await git(["add", ...gitPaths]);
   const staged = (await git(["diff", "--cached", "--name-only"])).stdout.trim();
   if (!staged) return { skipped: true, reason: "No tracked QA changes to commit." };
 

@@ -64,6 +64,7 @@ export function App() {
   const [pages, setPages] = useState<QaPage[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [selectedUrl, setSelectedUrl] = useState("");
+  const [webviewSrc, setWebviewSrc] = useState("");
   const [filter, setFilter] = useState<FilterKey>("needs");
   const [query, setQuery] = useState("");
   const [notes, setNotes] = useState("");
@@ -125,17 +126,21 @@ export function App() {
     };
   }, [pages]);
 
-  async function refreshProject(nextBrandId = brandId, nextProjectId = projectId) {
+  async function refreshProject(nextBrandId = brandId, nextProjectId = projectId, { preserveView }: { preserveView?: boolean } = {}) {
     if (!nextBrandId || !nextProjectId) return;
     setBusy("Loading project");
     try {
       const state = await window.sentinel.refreshProject({ brandId: nextBrandId, projectId: nextProjectId });
       setPages(state.pages);
       setWarnings(state.warnings);
-      const first = state.pages.find((page) => page.needsReview) || state.pages[0];
-      setSelectedUrl(first?.url || state.project.rootUrl);
-      setNotes("");
-      setEvidence(emptyEvidence());
+      if (!preserveView) {
+        const first = state.pages.find((page) => page.needsReview) || state.pages[0];
+        const initialUrl = first?.url || state.project.rootUrl;
+        setSelectedUrl(initialUrl);
+        setWebviewSrc(initialUrl);
+        setNotes("");
+        setEvidence(emptyEvidence());
+      }
     } finally {
       setBusy("");
     }
@@ -204,6 +209,7 @@ export function App() {
       if (!brand || !project) return;
       const navigatedUrl = event.url;
       if (!navigatedUrl) return;
+      setSelectedUrl(navigatedUrl);
       window.sentinel
         .saveDiscoveredUrls({
           brandId: brand.id,
@@ -212,7 +218,7 @@ export function App() {
           urls: [navigatedUrl]
         })
         .then((result) => {
-          if (result.added.length > 0) refreshProject(brand.id, project.id);
+          if (result.added.length > 0) refreshProject(brand.id, project.id, { preserveView: true });
         });
     };
     const onIpc = (event: any) => {
@@ -226,7 +232,7 @@ export function App() {
             urls: event.args[0].urls
           })
           .then((result) => {
-            if (result.added.length > 0) refreshProject(brand.id, project.id);
+            if (result.added.length > 0) refreshProject(brand.id, project.id, { preserveView: true });
           });
       }
       if (event.channel === "record-action") {
@@ -263,7 +269,10 @@ export function App() {
   function selectNextPage(currentUrl = selectedUrl) {
     const currentIndex = filteredPages.findIndex((page) => page.url === currentUrl);
     const next = filteredPages[currentIndex + 1] || filteredPages.find((page) => page.url !== currentUrl);
-    if (next) setSelectedUrl(next.url);
+    if (next) {
+      setSelectedUrl(next.url);
+      setWebviewSrc(next.url);
+    }
   }
 
   async function pageAction(status: QaPage["status"]) {
@@ -278,8 +287,7 @@ export function App() {
         source: selectedPage.source,
         sitemapLastmod: selectedPage.sitemapLastmod
       });
-      await refreshProject(brand.id, project.id);
-      selectNextPage(selectedPage.url);
+      await refreshProject(brand.id, project.id, { preserveView: true });
     } finally {
       setBusy("");
     }
@@ -311,8 +319,7 @@ export function App() {
             : "";
       setMessage(`Created GitHub issue: ${result.issueUrl}${replayText}`);
       setNotes("");
-      await refreshProject(brand.id, project.id);
-      selectNextPage(selectedPage.url);
+      await refreshProject(brand.id, project.id, { preserveView: true });
     } catch (error: any) {
       setMessage(error.message || "Failed to create GitHub issue.");
     } finally {
@@ -475,7 +482,7 @@ export function App() {
             <button
               key={page.url}
               className={page.url === selectedUrl ? "page-row selected" : "page-row"}
-              onClick={() => setSelectedUrl(page.url)}
+              onClick={() => { setSelectedUrl(page.url); setWebviewSrc(page.url); }}
             >
               <span className={statusClass(page.status)}>{statusLabel(page.status)}</span>
               <span className="page-url">{shortUrl(page.url)}</span>
@@ -503,10 +510,10 @@ export function App() {
         </header>
 
         <div className="webview-wrap">
-          {selectedUrl ? (
+          {webviewSrc ? (
             <webview
               ref={webviewRef}
-              src={selectedUrl}
+              src={webviewSrc}
               preload={bootstrap.qaPreloadPath}
               partition={project?.webviewPartition || `persist:${project?.id || "default"}`}
               allowpopups

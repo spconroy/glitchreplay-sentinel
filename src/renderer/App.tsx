@@ -177,14 +177,16 @@ export function App() {
         // Metadata is useful but not required.
       }
     };
+    const levelNames: Record<number, string> = { 0: "verbose", 1: "info", 2: "warning", 3: "error" };
     const onConsole = (event: any) => {
-      if (!["error", "warning"].includes(event.level)) return;
+      const level = typeof event.level === "number" ? event.level : -1;
+      if (level < 2) return;
       setEvidence((current) => ({
         ...current,
         consoleErrors: [
           ...current.consoleErrors,
           {
-            level: event.level,
+            level: levelNames[level] || String(event.level),
             message: event.message,
             source: event.sourceId,
             line: event.line,
@@ -303,7 +305,7 @@ export function App() {
       webview.removeEventListener("ipc-message", onIpc);
       webview.removeEventListener("new-window", onNewWindow);
     };
-  }, [brand, project]);
+  }, [brand, project, webviewSrc]);
 
   function selectNextPage(currentUrl = selectedUrl) {
     const currentIndex = filteredPages.findIndex((page) => page.url === currentUrl);
@@ -347,7 +349,7 @@ export function App() {
         pageUrl: selectedPage.url,
         notes: notes.trim() || "Technical issue captured by GlitchReplay Sentinel.",
         reviewer: reviewer.trim(),
-        webContentsId,
+        webContentsId: webviewRef.current?.getWebContentsId?.() ?? webContentsId,
         evidence
       });
       const replayText =

@@ -475,7 +475,7 @@ async function loadProjectState(config, brandId, projectId) {
       sitemapLastmod,
       lastInspectedAt,
       status,
-      needsReview: ["pending", "discovered", "issue", "needs_recheck"].includes(status),
+      needsReview: ["pending", "discovered", "needs_recheck"].includes(status),
       isModified,
       isNew: !stored.status
     };
